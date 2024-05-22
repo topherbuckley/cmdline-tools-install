@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Function to install packages using apt-get (Ubuntu) or brew (MacOS)
+install_package() {
+    if [ "$OS" == "linux" ]; then
+        sudo apt-get install -y "$1"
+    elif [ "$OS" == "macos" ]; then
+        brew install "$1"
+    fi
+}
+
+# Determine OS
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    OS="linux"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    OS="macos"
+else
+    echo "Unsupported OS: $OSTYPE"
+    exit 1
+fi
+
+# Install wget and unzip if not already installed
+if ! command -v wget &> /dev/null; then
+    echo "Installing wget..."
+    install_package "wget"
+fi
+
+if ! command -v unzip &> /dev/null; then
+    echo "Installing unzip..."
+    install_package "unzip"
+fi
+
+# Download the appropriate SDK tools
+if [ "$OS" == "linux" ]; then
+    SDK_URL="https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip"
+elif [ "$OS" == "macos" ]; then
+    SDK_URL="https://dl.google.com/android/repository/commandlinetools-mac-7583922_latest.zip"
+fi
+
+# Create directory for SDK
+mkdir -p ./android_sdk/cmdline-tools/latest
+
+# Download and extract SDK tools
+wget -O sdk.zip $SDK_URL
+unzip -q sdk.zip -d ./android_sdk/cmdline-tools/latest
+mv ./android_sdk/cmdline-tools/latest/cmdline-tools/* ./android_sdk/cmdline-tools/latest
+rmdir ./android_sdk/cmdline-tools/latest/cmdline-tools
+rm sdk.zip
+
+# Add SDK tools to PATH
+export PATH=$(realpath ./android_sdk/cmdline-tools/latest/bin):$PATH
+
+# Install necessary components
+yes | sdkmanager "platform-tools" "platforms;android-30" "build-tools;33.0.1" > /dev/null
+yes | sdkmanager --licenses > /dev/null
+
+# Set ANDROID_HOME and update PATH
+echo "export ANDROID_HOME=$(realpath ./android_sdk)" > android_env.sh
+echo "export PATH=$(realpath ./android_sdk/platform-tools):\$PATH" >> android_env.sh
+
+# Inform the user to source the file
+echo "Setup complete. Run 'source android_env.sh' to set the environment variables."
